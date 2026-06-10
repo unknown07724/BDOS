@@ -25,9 +25,9 @@
       // =====================
 // CONFIG
 // =====================
-const DB_NAME = "vfs";
-const STORE = "files";
-const BOOT_FLAG = "vfs_setup_done";
+const DB_NAME = "bdos_vfs";
+const STORE = "fs";
+const BOOT_FLAG = "bdos_setup_done";
 
 // =====================
 // BOOT FLAG (no re-fetch)
@@ -73,10 +73,7 @@ function readFile(db, path) {
         req.onerror = () => resolve(null);
     });
 }
-
-// =====================
-// WRITE FILE (NO OVERWRITE)
-// =====================
+        
 function writeFileOnce(db, path, content) {
     return new Promise((resolve) => {
         const tx = db.transaction(STORE, "readwrite");
@@ -148,14 +145,13 @@ async function boot() {
     const db = await openFS();
 
     if (!isSetupDone()) {
-        console.log("⚙️ first boot: installing virtual FS");
+        console.log("setting up BDOS for you");
 
         await installFile(db, "command.js", "/system/command.js");
         markSetupDone();
 
-        console.log("✅ setup complete");
+        console.log("setup");
     } else {
-        console.log("⚡ skipping install (already done)");
     }
 
     return db;
@@ -167,10 +163,9 @@ async function boot() {
 (async () => {
     const db = await boot();
 
-    // run something from "filesystem"
-    await runFile(db, "/bin/a.js");
+    await runFile(db, "/system/command.js");
 })();
-    </script>
+</script>
 </body>
 
 </html>
