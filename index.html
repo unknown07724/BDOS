@@ -147,6 +147,7 @@ async function boot() {
         console.log("setting up BDOS for you");
 
         await installFile(db, "command.js", "/system/command.js");
+        await installFile(db, "bdosfsapi.js", "/system/bdosfsapi.js");
         markSetupDone();
 
         console.log("setup");
@@ -163,6 +164,7 @@ async function boot() {
     const db = await boot();
 
     await runFile(db, "/system/command.js");
+    await runFile(db, "/system/bdosfsapi.js");
 })();
 </script>
 </body>
