@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Broswer Disk Operating System</title>
+    <link rel="icon" href="/favicon.ico">
+    <style>
+        @font-face {
+            font-family: "IBMBIOS";
+            src: url("https://cdn.jsdelivr.net/gh/retro-vault/font-vault@main/source/fonts/oldschool_ibm_bios/Px437_IBM_BIOS.ttf") format("truetype");
+        }
+
+        body {
+            background-color: #000000;
+            color: #AAA;
+            font-family: IBMBIOS;
+        }
+    </style>
+</head>
+
+<body>
+    <p id="screen"></p>
+    <script>
+      // =====================
+// CONFIG
+// =====================
+const DB_NAME = "vfs";
+const STORE = "files";
+const BOOT_FLAG = "vfs_setup_done";
+
+// =====================
+// BOOT FLAG (no re-fetch)
+// =====================
+function isSetupDone() {
+    return localStorage.getItem(BOOT_FLAG) === "true";
+}
+
+function markSetupDone() {
+    localStorage.setItem(BOOT_FLAG, "true");
+}
+
+// =====================
+// OPEN INDEXEDDB
+// =====================
+function openFS() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+
+        req.onupgradeneeded = () => {
+            const db = req.result;
+
+            if (!db.objectStoreNames.contains(STORE)) {
+                db.createObjectStore(STORE, { keyPath: "path" });
+            }
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+// =====================
+// READ FILE
+// =====================
+function readFile(db, path) {
+    return new Promise((resolve) => {
+        const tx = db.transaction(STORE, "readonly");
+        const store = tx.objectStore(STORE);
+
+        const req = store.get(path);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+    });
+}
+
+// =====================
+// WRITE FILE (NO OVERWRITE)
+// =====================
+function writeFileOnce(db, path, content) {
+    return new Promise((resolve) => {
+        const tx = db.transaction(STORE, "readwrite");
+        const store = tx.objectStore(STORE);
+
+        const req = store.add({
+            path,
+            content,
+            createdAt: Date.now()
+        });
+
+        req.onsuccess = () => resolve(true);
+
+        req.onerror = () => {
+            // already exists → ignore silently
+            resolve(false);
+        };
+    });
+}
+
+// =====================
+// FETCH + INSTALL FILE
+// (only during first boot)
+// =====================
+async function installFile(db, url, path) {
+    const existing = await readFile(db, path);
+
+    if (existing) {
+        console.log("📁 exists:", path);
+        return existing.content;
+    }
+
+    console.log("⬇️ fetching:", url);
+
+    const res = await fetch(url);
+    const code = await res.text();
+
+    await writeFileOnce(db, path, code);
+
+    return code;
+}
+
+// =====================
+// EXECUTE JS
+// =====================
+function execJS(code) {
+    const script = document.createElement("script");
+    script.textContent = code;
+    document.body.appendChild(script);
+}
+
+// =====================
+// LOAD FILE FROM FS
+// =====================
+async function runFile(db, path) {
+    const file = await readFile(db, path);
+
+    if (!file) {
+        throw new Error("File not found: " + path);
+    }
+
+    execJS(file.content);
+}
+
+// =====================
+// BOOT SEQUENCE
+// =====================
+async function boot() {
+    const db = await openFS();
+
+    if (!isSetupDone()) {
+        console.log("⚙️ first boot: installing virtual FS");
+
+        await installFile(db, "command.js", "/system/command.js");
+        markSetupDone();
+
+        console.log("✅ setup complete");
+    } else {
+        console.log("⚡ skipping install (already done)");
+    }
+
+    return db;
+}
+
+// =====================
+// EXAMPLE USAGE
+// =====================
+(async () => {
+    const db = await boot();
+
+    // run something from "filesystem"
+    await runFile(db, "/bin/a.js");
+})();
+    </script>
+</body>
+
+</html>
