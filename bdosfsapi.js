@@ -11,7 +11,6 @@ async function read(path) {
         req.onerror = () => resolve(null);
     });
 }
-
 async function write(path, content) {
     const db = await openFS();
 
@@ -40,5 +39,21 @@ async function deleteFile(path) {
 
         req.onsuccess = () => resolve(true);
         req.onerror = () => resolve(false);
+    });
+}
+async function list() {
+    const db = await openFS();
+
+    return new Promise((resolve) => {
+        const tx = db.transaction(STORE, "readonly");
+        const store = tx.objectStore(STORE);
+
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+            resolve(req.result || []);
+        };
+
+        req.onerror = () => resolve([]);
     });
 }
