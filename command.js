@@ -1,4 +1,4 @@
-     const screen = document.getElementById("screen");
+const screen = document.getElementById("screen");
 
 let lines = [];
 let currentLine = null;
@@ -19,7 +19,8 @@ const commands = {
 
   ECHO(args) {
     return args
-  },     
+  }
+}
 
 
 function createLine() {
