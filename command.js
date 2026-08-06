@@ -34,15 +34,29 @@ function focusLast() {
   currentLine = lines[lines.length - 1];
 }
 
-function runCommand(input) {
+async function runCommand(input) {
   const parts = input.trim().split(" ");
-  const cmd = parts[0];
+  const cmd = parts[0].toUpperCase();
   const args = parts.slice(1);
 
   if (!cmd) return;
 
+  // Built-in commands first
   if (commands[cmd]) {
     return commands[cmd](args);
+  }
+
+  // Search /system for a program
+  const db = await openFS();
+  const file = await readFile(db, "/system/" + parts[0] + ".js");
+
+  if (file) {
+    try {
+      const program = new Function("args", file.content);
+      return program(args);
+    } catch (err) {
+      return "PROGRAM ERROR: " + err.message;
+    }
   }
 
   return "Unknown command";
@@ -52,14 +66,14 @@ function runCommand(input) {
 lines.push(createLine());
 focusLast();
 
-document.addEventListener("keydown", (e) => {
+document.addEventListener("keydown", async (e) => {
   e.preventDefault();
 
   if (e.key === "Enter") {
     const input = currentLine.textContent;
 
-    const output = runCommand(input);
-
+    const output = await runCommand(input);
+    
     if (output !== null && output !== undefined) {
       const outLine = createLine();
       outLine.textContent = output;
